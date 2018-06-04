@@ -1,55 +1,56 @@
 {
+    // The inverse of the momentum equation "A" operator (the matrix diagonal) and
+    // its projection from cell centers to cell faces.  Because it is a diagonal matrix,
+    // The inverse is just the diagonal matrix of the reciprocals, hence the "r" in the
+    // name "rAU".
     volScalarField rAU("rAU", 1.0/UEqn.A());
     surfaceScalarField rAUf("(1|A(U))", fvc::interpolate(rAU));
 
+    // The momentum equation "H" operator is the off-diagonal times the last known U. 
+    // In the equations it is always multiplied with inv(A).  This is HbyA.
     volVectorField HbyA("HbyA", U);
     HbyA = rAU*UEqn.H();
 
+    // This is the Boussinesq buoyancy term multipled by the r
     surfaceScalarField phig(-rAUf*ghf*fvc::snGrad(rhok)*mesh.magSf());
 
+    // Project HbyA to cell faces and apply a correction for time stepping scheme.
     surfaceScalarField phiHbyA
     (
         "phiHbyA",
         (fvc::interpolate(HbyA) & mesh.Sf())
-      + rAUf*fvc::ddtCorr(U, phi)
+       + rAUf*fvc::ddtCorr(U, phi)
     );
 
+    // This part can be confusing.  
+  //surfaceScalarField phiFixedFlux = fvc::interpolate(U) & mesh.Sf();
+    surfaceScalarField phiFixedFlux = phiHbyA;
+
+   
   //adjustPhi(phiHbyA, U, p_rgh);
-
-    surfaceScalarField phiFixedFlux = fvc::interpolate(U) & mesh.Sf();
-
     adjustPhi(phiFixedFlux, U, p_rgh);
+
 
     phiHbyA += phig;
 
 /*
-    FieldField<fvsPatchField, scalar> a = 
-       (phiHbyA.boundaryField()
-      - phiFixedFlux.boundaryField()
-       )/(mesh.magSf().boundaryField()*rAUf.boundaryField());
-*/
-
-/*
-    forAll(a,patchI)
+    forAll(p_rgh.boundaryField(),i)
     {
-        forAll(a[patchI],i)
+        if ( !mesh.boundary()[i].coupled() )
         {
-            if (phiFixedFlux.boundaryField()[patchI][i] > 0.0)
+            const fvPatchScalarField& pp = p_rgh.boundaryField()[i];
+            bool isAffp = isA<fixedFluxPressureFvPatchScalarField>(pp);
+            word boundaryName = mesh.boundary()[i].name();
+            if (isAffp)
             {
-                a[patchI][i] = 0.0;
+               Info << "Patch " << i << ", " << boundaryName << ", is a fixedFluxPressure boundary for p_rgh" << endl;
+            }
+            else
+            {
+               Info << "Patch " << i << ", " << boundaryName << ", is not a fixedFluxPressure boundary for p_rgh" << endl;
             }
         }
     }
-*/
-/*
-    setSnGrad<fixedFluxPressureFvPatchScalarField>
-    (
-        p_rgh.boundaryField(),
-        (
-            phiHbyA.boundaryField()
-          - (mesh.Sf().boundaryField() & U.boundaryField())
-        ) / (mesh.magSf().boundaryField()*rAUf.boundaryField())
-    );
 */
 
     // Update the fixedFluxPressure BCs to ensure flux consistency
@@ -62,13 +63,8 @@
         )/(mesh.magSf().boundaryField()*rAUf.boundaryField())
     );
 
-/*
-    setSnGrad<fixedFluxPressureFvPatchScalarField>
-    (
-        p_rgh.boundaryField(),
-        a
-    );
-*/
+
+
 
     while (pimple.correctNonOrthogonal())
     {
@@ -85,8 +81,6 @@
         {
             // Calculate the conservative fluxes
             phi = phiHbyA - p_rghEqn.flux();
-
-            adjustPhi(phi,U,p_rgh);
 
             // Explicitly relax pressure for momentum corrector
             p_rgh.relax();
