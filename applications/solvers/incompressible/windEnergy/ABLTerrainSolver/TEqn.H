@@ -15,5 +15,6 @@
     TEqn.relax();
     TEqn.solve();
 
-    rhok = 1.0 - ( (T - TRef)/TRef );
+  //rhok = 1.0 - ( (T - TRef)/TRef );
+    rhok = 1.0 - ( (T - Tbase)/Tbase );
 }

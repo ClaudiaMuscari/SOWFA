@@ -68,6 +68,35 @@
 
 
 
+    // PROPERTIES CONCERNING THE BASE STATE
+       // Read in the table of base state potential temperature vs. height.
+       List<List<scalar> > baseStateTable(ABLProperties.lookup("baseStateTable"));
+       label nBaseStateHeights = baseStateTable.size();
+       scalarField baseStateHeights(nBaseStateHeights,0.0);
+       scalarField baseStateTemperature(nBaseStateHeights,0.0);
+       forAll(baseStateHeights,i)
+       {
+           baseStateHeights[i] = baseStateTable[i][0];
+           baseStateTemperature[i] = baseStateTable[i][1];
+       }      
+ 
+       // Interpolate the base state potential temperature at each grid point from the 
+       // specified base state table
+       forAll(Tbase,i)
+       {
+           scalar z = mesh.C()[i].z();
+           Tbase[i] = interpolateXY(z,baseStateHeights,baseStateTemperature);
+       }
+
+       Info << "Base State: " << endl;
+       Info << "  z (m)      T_base (K) " << endl;
+       forAll(baseStateHeights,i)
+       {
+           Info << "  " << baseStateHeights[i] << "  " << baseStateTemperature[i] << endl;
+       }
+
+
+
     // PROPERTIES CONCERNING CORIOLIS FORCES
 
        // Planetary rotation period (hours)
@@ -78,7 +107,7 @@
 
        // Up index
        label upIndex = 2;
-       vector nUp(vector::zero);
+       vector nUp = vector::zero;
        nUp.z() = 1.0;
 
        // Compute the planetar rotation vector

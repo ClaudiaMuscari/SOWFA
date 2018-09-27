@@ -13,6 +13,21 @@
         mesh
     );
 
+    // Create and read the base potential temperature field
+    Info << "Creating and reading the base potential temperature field, Tbase..." << endl;
+    volScalarField Tbase
+    (
+        IOobject
+        (
+            "Tbase",
+            runTime.timeName(),
+            mesh,
+            IOobject::READ_IF_PRESENT,
+            IOobject::AUTO_WRITE
+        ),
+        T
+    );    
+
     // Create initial average temperature field
     Info<< "Creating mean temperature field, Tmean..." << endl;
     volScalarField Tmean
