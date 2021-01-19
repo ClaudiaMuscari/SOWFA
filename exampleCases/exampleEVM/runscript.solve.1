@@ -1,0 +1,44 @@
+#!/bin/bash
+#PBS -l walltime=48:00:00
+#PBS -l nodes=20:ppn=24
+#PBS -l feature=24core
+#PBS -A windsim
+#PBS -q batch
+
+
+
+
+
+# User Input.
+OpenFOAMversion=2.4.0                  # OpenFOAM version
+startTime=0                             # Start time
+cores=8                               # Enter the number of cores you will preprocess on.
+runNumber=1                             # Enter the run number (useful for keeping track of restarts).
+solver=pisoFoamTurbine.ALMAdvanced      # Enter the name of the flow solver.
+
+
+
+echo "Starting OpenFOAM job at: " $(date)
+echo "using " $cores " cores"
+
+
+# Source the bash profile and then call the appropriate OpenFOAM version function
+# so that all the modules and environment variables get set.
+echo "Sourcing the bash profile, loading modules, and setting the OpenFOAM environment variables..."
+#source $HOME/.bash_profile
+#OpenFOAM-$OpenFOAMversion
+export SOWFA_DIR=/home/claudia/OpenFOAM/OpenFOAM-2.4.0/SOWFA
+export OPENFAST_DIR=/home/claudia/OpenFAST
+export HDF5_DIR=$OPENFAST_DIR
+export LD_LIBRARY_PATH=$SOWFA_DIR/lib/$WM_OPTIONS:$OPENFAST_DIR/lib:$LD_LIBRARY_PATH
+export PATH=$SOWFA_DIR/applications/bin/$WM_OPTIONS:$PATH
+
+
+# Get the control dictionary for this particular run.
+cp system/controlDict.$runNumber system/controlDict
+
+
+# Run the solver.
+mpirun -np $cores $solver -parallel > log.$runNumber.$solver 2>&1
+
+echo "Ending OpenFOAM job at: " $(date)
