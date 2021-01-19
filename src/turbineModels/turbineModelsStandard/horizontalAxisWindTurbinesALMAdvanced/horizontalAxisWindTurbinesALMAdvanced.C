@@ -19,7 +19,7 @@ License
     This file is part of OpenFOAM.
 
     OpenFOAM is free software: you can redistribute it and/or modify it
-    under the terms of the GNU General Public License as published by
+    under the terms of the GNU General Public License as published by 
     the Free Software Foundation, either version 3 of the License, or
     (at your option) any later version.
 
@@ -34,7 +34,7 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "horizontalAxisWindTurbinesALMAdvanced.H"
-#include "interpolateXY.H"
+#include "interpolateXY.H"  
 
 namespace Foam
 {
@@ -48,15 +48,15 @@ horizontalAxisWindTurbinesALMAdvanced::horizontalAxisWindTurbinesALMAdvanced
     const volVectorField& U
 )
 :
-    // Set the pointer to runTime
+   // Set the pointer to runTime
     runTime_(U.time()),
 
-    // Set the pointer to the mesh
+    // Set the pointer to the mesh 
     mesh_(U.mesh()),
 
-    // Set the pointer to the velocity field
+    // Set the pointer to the velocity field 
     U_(U),
-
+ 
     // Set the degrees to radians convesion factor.
     degRad((Foam::constant::mathematical::pi)/180.0),
 
@@ -64,7 +64,7 @@ horizontalAxisWindTurbinesALMAdvanced::horizontalAxisWindTurbinesALMAdvanced
     rpsRadSec(2.0*(Foam::constant::mathematical::pi)),
 
     // Set the revolutions/min to radians/s conversion factor.
-    rpmRadSec(2.0*(Foam::constant::mathematical::pi)/60.0),
+    rpmRadSec(2.0*(Foam::constant::mathematical::pi)/60.0), 
 
     // Set the time step size.
     dt(runTime_.deltaT().value()),
@@ -73,7 +73,7 @@ horizontalAxisWindTurbinesALMAdvanced::horizontalAxisWindTurbinesALMAdvanced
     time(runTime_.timeName()),
     t(runTime_.value()),
 
-    // Set the pastFirstTimeStep flag to false
+    // Set the pastFirstTimeStep flag to false    
     pastFirstTimeStep(false),
 
 
@@ -107,6 +107,28 @@ horizontalAxisWindTurbinesALMAdvanced::horizontalAxisWindTurbinesALMAdvanced
         dimensionedVector("bodyForce",dimForce/dimVolume/dimDensity,vector::zero)
     ),
     
+    
+
+
+    
+    
+
+    // Create initial average velocity field
+    Umean
+    (
+        IOobject
+        (
+            "Umean",
+            time,
+            mesh_,
+            IOobject::READ_IF_PRESENT,
+            IOobject::NO_WRITE
+        ),
+        U
+    ),
+    
+    
+
     // Initialize the summed distribution function (not needed for calculation,
     // but helps in understanding distribution function shape).
     gBlade
@@ -166,9 +188,11 @@ horizontalAxisWindTurbinesALMAdvanced::horizontalAxisWindTurbinesALMAdvanced
             IOobject::AUTO_WRITE
         ),
         mesh_,
-        dimensionedVector("Urel",dimLength/dimTime,vector::zero)
+        dimensionedVector("Urel",dimLength/dimTime,vector::zero) 
     )
 
+
+  
 
 {   
     // Define dictionary that defines the turbine array.
@@ -184,6 +208,18 @@ horizontalAxisWindTurbinesALMAdvanced::horizontalAxisWindTurbinesALMAdvanced
         )
     );
     
+     IOdictionary EVMsetting
+    (
+        IOobject
+        (
+            "EVMsetting",
+            runTime_.constant(),
+            mesh_,
+            IOobject::MUST_READ, 
+            IOobject::NO_WRITE 
+        )
+    );
+
     // Read in the turbine array properties dictionary.  This is the uppermost level dictionary
     // that describes where the turbines are, what kind they are, their initial state, and 
     // information about how the actuator line method is applied to each turbine.
@@ -193,14 +229,14 @@ horizontalAxisWindTurbinesALMAdvanced::horizontalAxisWindTurbinesALMAdvanced
         {
             if (listTemp[i] != "globalProperties")
             {
-                turbineName.append(listTemp[i]);
+                turbineName.append(listTemp[i]); 
             }
         }
     }
 
     numTurbines = turbineName.size();
 
-    outputControl = turbineArrayProperties.subDict("globalProperties").lookupOrDefault<word>("outputControl","timeStep");
+    outputControl = turbineArrayProperties.subDict("globalProperties").lookupOrDefault<word>("outputControl","timeStep"); 
     outputInterval = turbineArrayProperties.subDict("globalProperties").lookupOrDefault<scalar>("outputInterval",1);
     perturb = turbineArrayProperties.subDict("globalProperties").lookupOrDefault<scalar>("perturb",1E-5);
     lastOutputTime = runTime_.startTime().value();
@@ -222,6 +258,7 @@ horizontalAxisWindTurbinesALMAdvanced::horizontalAxisWindTurbinesALMAdvanced
         numTowerPoints.append(int(readScalar(turbineArrayProperties.subDict(turbineName[i]).lookup("numTowerPoints"))));
 
         bladePointDistType.append(word(turbineArrayProperties.subDict(turbineName[i]).lookup("bladePointDistType")));
+        velEvalType.append(word(turbineArrayProperties.subDict(turbineName[i]).lookup("velEvalType")));
         nacellePointDistType.append(word(turbineArrayProperties.subDict(turbineName[i]).lookup("nacellePointDistType")));
         towerPointDistType.append(word(turbineArrayProperties.subDict(turbineName[i]).lookup("towerPointDistType")));
 
@@ -293,6 +330,12 @@ horizontalAxisWindTurbinesALMAdvanced::horizontalAxisWindTurbinesALMAdvanced
         }
     }
 
+    // Read EVM quantities from dict                                           
+    EVMlength=readScalar(EVMsetting.lookup("length"));   
+    EVMdist=readScalar(EVMsetting.lookup("dist"));
+    EVMrf=readScalar(EVMsetting.lookup("rf"));  
+    meshDim=readScalar(EVMsetting.lookup("meshDim"));  
+    numEVMPoints=int(readScalar(EVMsetting.lookup("EVMnumPts")));
 
     // Catalog the various types of turbines.  For example if three turbines are GE 1.5 and 
     // two turbines are Siemens 2.3 machines, then assign the GE 1.5 an ID of 0 and the Siemens
@@ -414,7 +457,7 @@ horizontalAxisWindTurbinesALMAdvanced::horizontalAxisWindTurbinesALMAdvanced
             torqueInt.clear();
         }
         
-       
+        
 
         RateLimitBladePitch.append(readScalar(turbineProperties.subDict("BladePitchControllerParams").lookup("RateLimitBladePitch")));
         if (BladePitchControllerType[i] == "none")
@@ -497,7 +540,7 @@ horizontalAxisWindTurbinesALMAdvanced::horizontalAxisWindTurbinesALMAdvanced
         }
 
 
-
+   
         TowerData.append(turbineProperties.lookup("TowerData"));
         {
            DynamicList<scalar> height;
@@ -647,7 +690,6 @@ horizontalAxisWindTurbinesALMAdvanced::horizontalAxisWindTurbinesALMAdvanced
     }
 
 
-
     // Convert quantities in degrees into radians (dynamic lists
     // have to be done in loops).
     rotorAzimuth   = degRad * rotorAzimuth;
@@ -685,7 +727,7 @@ horizontalAxisWindTurbinesALMAdvanced::horizontalAxisWindTurbinesALMAdvanced
 
 
 
-
+     
     // Create the actuator line points (not yet rotated for initial nacelle
     // yaw or initial rotor azimuth), the actuator tower points, and the
     // actuator nacelle points. i-index is at array level, j-index is
@@ -694,9 +736,12 @@ horizontalAxisWindTurbinesALMAdvanced::horizontalAxisWindTurbinesALMAdvanced
     // initialize the forces, blade aligned coordinate system, and
     // wind vectors to zero.
     totBladePoints = 0;
+    totEVMPoints = 0;                    //create the EVM points
     totNacellePoints = 0;
     totTowerPoints = 0;
     Random rndGen(123456);
+    vector velocityEVM(vector::zero);    // initialize velocity EVM
+
     for(int i = 0; i < numTurbines; i++)
     {
         int j = turbineTypeID[i];
@@ -724,6 +769,7 @@ horizontalAxisWindTurbinesALMAdvanced::horizontalAxisWindTurbinesALMAdvanced
         bladeDs.append(DynamicList<scalar>(0));
         if(bladePointDistType[i] == "uniform")
         {
+          
             scalar actuatorWidth = (TipRad[j]-HubRad[j])/numBladePoints[i];
             for(int m = 0; m < numBladePoints[i]; m++)
             {
@@ -732,11 +778,13 @@ horizontalAxisWindTurbinesALMAdvanced::horizontalAxisWindTurbinesALMAdvanced
         }
         // Add other point distribution types here, such as cosine, tanh.
     
-        // Calculate the actual locations of the blade actuator elemens and
+        // Calculate the actual locations of the blade actuator elements and
         // interpolate blade properties to these points.
         bladePoints.append(List<List<vector> >(NumBl[j], List<vector>(numBladePoints[i],vector::zero)));
         bladeSamplePoints.append(List<List<vector> >(NumBl[j], List<vector>(numBladePoints[i],vector::zero)));
-        bladePointRadius.append(List<List<scalar> >(NumBl[j], List<scalar>(numBladePoints[i],0.0)));
+      
+        EVMSamplePoints.append(List<List<List<vector> > >(NumBl[j], List<List<vector> >(numBladePoints[i], List<vector>(numEVMPoints,vector::zero))));
+        bladePointRadius.append(List<List<scalar> >(NumBl[j], List<scalar>(numBladePoints[i],0.0))); 
         bladePointChord.append(List<List<scalar> >(NumBl[j], List<scalar>(numBladePoints[i],0.0)));
         bladePointTwist.append(List<List<scalar> >(NumBl[j], List<scalar>(numBladePoints[i],0.0)));
         bladePointThickness.append(List<List<scalar> >(NumBl[j], List<scalar>(numBladePoints[i],0.0)));
@@ -744,30 +792,30 @@ horizontalAxisWindTurbinesALMAdvanced::horizontalAxisWindTurbinesALMAdvanced
         bladePointAirfoil.append(List<List<label> >(NumBl[j], List<label>(numBladePoints[i],0)));
         for(int k = 0; k < NumBl[j]; k++)
         {
-            vector root = rotorApex[i];
+            vector root = rotorApex[i]; 
             scalar beta = PreCone[j][k] - ShftTilt[j];
             root.x() = root.x() + HubRad[j]*Foam::sin(beta);
             root.z() = root.z() + HubRad[j]*Foam::cos(beta);
           //scalar dist = HubRad[j];
             scalar dist = 0.0;
+      
             for(int m = 0; m < numBladePoints[i]; m++)
             {
                dist = dist + 0.5*bladeDs[i][m];
                bladePoints[i][k][m].x() = root.x() + dist*Foam::sin(beta);
                bladePoints[i][k][m].y() = root.y();
                bladePoints[i][k][m].z() = root.z() + dist*Foam::cos(beta);
-               bladeSamplePoints[i][k][m] = bladePoints[i][k][m];
+               bladeSamplePoints[i][k][m] = bladePoints[i][k][m]; 
              //bladePointRadius[i][k][m] = dist;
                bladePointRadius[i][k][m] = HubRad[j] + dist;
                totBladePoints++;
                dist = dist + 0.5*bladeDs[i][m];
-
-               bladePointChord[i][k][m] = interpolate(bladePointRadius[i][k][m], BladeStation[j], BladeChord[j]);
-               bladePointTwist[i][k][m] = interpolate(bladePointRadius[i][k][m], BladeStation[j], BladeTwist[j]);
-               bladePointThickness[i][k][m] = interpolate(bladePointRadius[i][k][m], BladeStation[j], BladeThickness[j]);
-               bladePointUserDef[i][k][m] = interpolate(bladePointRadius[i][k][m], BladeStation[j], BladeUserDef[j]);
+               bladePointChord[i][k][m] = interpolate<scalar>(bladePointRadius[i][k][m], BladeStation[j], BladeChord[j]);
+               bladePointTwist[i][k][m] = interpolate<scalar>(bladePointRadius[i][k][m], BladeStation[j], BladeTwist[j]);
+               bladePointThickness[i][k][m] = interpolate<scalar>(bladePointRadius[i][k][m], BladeStation[j], BladeThickness[j]);
+               bladePointUserDef[i][k][m] = interpolate<scalar>(bladePointRadius[i][k][m], BladeStation[j], BladeUserDef[j]);
                label maxIndex = BladeAirfoilTypeID[j].size() - 1;
-               label airfoil = interpolate(bladePointRadius[i][k][m], BladeStation[j], BladeAirfoilTypeID[j]);
+               label airfoil = interpolate<label>(bladePointRadius[i][k][m], BladeStation[j], BladeAirfoilTypeID[j]);
                bladePointAirfoil[i][k][m] = min(max(0,airfoil),maxIndex);
             }
 
@@ -781,8 +829,13 @@ horizontalAxisWindTurbinesALMAdvanced::horizontalAxisWindTurbinesALMAdvanced
                     bladeSamplePoints[i][k][m] = rotateVector(bladeSamplePoints[i][k][m], rotorApex[i], uvShaft[i], (360.0/NumBl[j])*k*degRad);
                 }
             }
+           
+            
+              
         }
-
+        totEVMPoints=totBladePoints*numEVMPoints;
+        minDisGlobalEVM.append(List<scalar>(totEVMPoints,1e30));
+        minDisLocalEVM.append(List<scalar>(totEVMPoints,1e30));
 
         // Compute the location of the tower section center points for each
         // turbine tower in the array.
@@ -797,6 +850,7 @@ horizontalAxisWindTurbinesALMAdvanced::horizontalAxisWindTurbinesALMAdvanced
                 towerDs[i].append(actuatorWidth);
             }
         }
+          
         // Add other point distribution types here, such as cosine, tanh.
 
         // Compute the actual locations of the tower actuator elements and 
@@ -815,6 +869,7 @@ horizontalAxisWindTurbinesALMAdvanced::horizontalAxisWindTurbinesALMAdvanced
            towerSamplePoints[i][0] = towerPoints[i][0];
            towerSamplePoints[i][0].x() -= towerSampleDistance[i];
            totTowerPoints++;
+          
            for(int m = 1; m < numTowerPoints[i]; m++)
            {
                towerPoints[i][m] = baseLocation[i];
@@ -824,12 +879,12 @@ horizontalAxisWindTurbinesALMAdvanced::horizontalAxisWindTurbinesALMAdvanced
                towerPointHeight[i][m] = towerPoints[i][m].z() - baseLocation[i].z();
                totTowerPoints++;
 
-               towerPointChord[i][m] = interpolate(towerPointHeight[i][m], TowerStation[j], TowerChord[j]);
-               towerPointTwist[i][m] = interpolate(towerPointHeight[i][m], TowerStation[j], TowerTwist[j]);
-               towerPointThickness[i][m] = interpolate(towerPointHeight[i][m], TowerStation[j], TowerThickness[j]);
-               towerPointUserDef[i][m] = interpolate(towerPointHeight[i][m], TowerStation[j], TowerUserDef[j]);
+               towerPointChord[i][m] = interpolate<scalar>(towerPointHeight[i][m], TowerStation[j], TowerChord[j]);
+               towerPointTwist[i][m] = interpolate<scalar>(towerPointHeight[i][m], TowerStation[j], TowerTwist[j]);
+               towerPointThickness[i][m] = interpolate<scalar>(towerPointHeight[i][m], TowerStation[j], TowerThickness[j]);
+               towerPointUserDef[i][m] = interpolate<scalar>(towerPointHeight[i][m], TowerStation[j], TowerUserDef[j]);
                label maxIndex = TowerAirfoilTypeID[j].size() - 1;
-               label airfoil = interpolate(towerPointHeight[i][m], TowerStation[j], TowerAirfoilTypeID[j]);
+               label airfoil = interpolate<label>(towerPointHeight[i][m], TowerStation[j], TowerAirfoilTypeID[j]);
                towerPointAirfoil[i][m] = min(max(0,airfoil),maxIndex);
 
            }
@@ -915,6 +970,7 @@ horizontalAxisWindTurbinesALMAdvanced::horizontalAxisWindTurbinesALMAdvanced
         bladeWindVectors.append(List<List<vector> >(NumBl[j],List<vector>(numBladePoints[i],vector::zero)));
         towerWindVectors.append(List<vector>(numTowerPoints[i],vector::zero));
         nacelleWindVector.append(vector::zero);
+         
 
         // Define the size of the deltaNacYaw, deltaAzimuth, and deltaPitch lists and set to zero.
         deltaNacYaw.append(0.0);
@@ -989,6 +1045,10 @@ horizontalAxisWindTurbinesALMAdvanced::horizontalAxisWindTurbinesALMAdvanced
 
         // Define the size of the cell-containing-actuator-point-sampling ID list and set to -1.
         bladeMinDisCellID.append(List<List<label> >(NumBl[j], List<label>(numBladePoints[i],-1)));
+        EVMMinDisCellID.append(List<List<List<label> > >(NumBl[j], List<List<label> >(numBladePoints[i], List<label>(numEVMPoints,-1)))); 
+        //EVMMinDisCellID.append(-1); 
+      
+        
         nacelleMinDisCellID.append(-1);
         towerMinDisCellID.append(List<label>(numTowerPoints[i],-1));
 
@@ -1018,7 +1078,7 @@ horizontalAxisWindTurbinesALMAdvanced::horizontalAxisWindTurbinesALMAdvanced
     // Define the sets of search cells when sampling velocity and projecting
     // the body force.
     for(int i = 0; i < numTurbines; i++)
-    {
+    {   
         findRotorSearchCells(i);
         if (includeNacelle[i])
         {
@@ -1029,40 +1089,45 @@ horizontalAxisWindTurbinesALMAdvanced::horizontalAxisWindTurbinesALMAdvanced
             findTowerSearchCells(i);
         }
     }
-
+    
     // If there are search cells for a particular turbine, then this processor
-    // must do calculations for this turbine, so check for that.
+    // must do calculations for this turbine, so check for that. 
     updateTurbinesControlled();
 
     // Compute the blade aligned vectors.
     computeBladeAlignedVectors();
-
+   
     // If the blade body force projection is aligned with streamlines, then
     // compute the radius from the main shaft axis of the CFD mesh cells.
     for (int i = 0; i < numTurbines; i++)
     {
-        if (bladeForceProjectionDirection[i] == "localVelocityAligned")
-        {
+        //if (bladeForceProjectionDirection[i] == "localVelocityAligned")
+        {   
             updateRadius(i);
         }
     }
-
+   
     // Find out which processors control each actuator line point.
+    
     findBladePointControlProcNo();
     findNacellePointControlProcNo();
-    findTowerPointControlProcNo();
+    findTowerPointControlProcNo(); 
+    
 
     // Compute the wind vectors at this initial time step.
+  
     computeBladePointWindVectors();
     computeNacellePointWindVectors();
     computeTowerPointWindVectors();
 
     // Compute the blade forces due to this wind at the initial time step.
+   
     computeBladePointForce();
     computeNacellePointForce();
     computeTowerPointForce();
 
     // Compute the resultant body force at this initial time step.
+     
     computeBladeBodyForce();
     computeNacelleBodyForce();
     computeTowerBodyForce();
@@ -1070,6 +1135,7 @@ horizontalAxisWindTurbinesALMAdvanced::horizontalAxisWindTurbinesALMAdvanced
     // Open the turbine data output files and print initial information.
     openOutputFiles();
     printOutputFiles();
+    
 }
 
 // * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * * * //
@@ -1124,7 +1190,7 @@ void horizontalAxisWindTurbinesALMAdvanced::findRotorSearchCells(int turbineNumb
     {
         bladeProjectionRadius[i] = bladeEpsilonMax * Foam::sqrt(Foam::log(1.0/0.001));
     }
-    else if (bladeForceProjectionType[i] == "variableUniformGaussianUserDef")
+    else if (bladeForceProjectionType[i] == "variableUniformGaussianUserDef")  
     {
         bladeProjectionRadius[i] = bladeUserDefMax * bladeEpsilonMax * Foam::sqrt(Foam::log(1.0/0.001));
     }
@@ -1134,14 +1200,14 @@ void horizontalAxisWindTurbinesALMAdvanced::findRotorSearchCells(int turbineNumb
     {
         bladeProjectionRadius[i] = bladeChordMax * bladeEpsilonMax * Foam::sqrt(Foam::log(1.0/0.001));
     }
-        
+         
     // Defines the search cell set a all cells within a sphere that occupies
     // the volume that the rotor lies in for any yaw angle.  This is a fairly
     // large volume, so possibly inefficient for fine meshes.  See the "disk"
     // option below.
-    DynamicList<label> influenceCellsI;
+    DynamicList<label> influenceCellsI; 
     if (bladeSearchCellMethod[i] == "sphere")
-    {
+    {  
         scalar sphereRadius = 0.0;
         forAll(PreCone[m],j)
         {
@@ -1167,7 +1233,7 @@ void horizontalAxisWindTurbinesALMAdvanced::findRotorSearchCells(int turbineNumb
     // rotor revolution plane.  It isn't really a disk because it accounts for
     // rotor precone, so it is more of a disk that is coned.
     else if (bladeSearchCellMethod[i] == "disk")
-    {
+    {   
         forAll(U_.mesh().cells(),cellI)
         {
             vector xP = vector::zero;
@@ -1198,9 +1264,10 @@ void horizontalAxisWindTurbinesALMAdvanced::findRotorSearchCells(int turbineNumb
     }
     bladeInfluenceCells[i].clear();
     bladeInfluenceCells[i] = influenceCellsI;
-    influenceCellsI.clear();
+    influenceCellsI.clear(); 
 }
 
+ 
 
 void horizontalAxisWindTurbinesALMAdvanced::findNacelleSearchCells(int turbineNumber)
 {
@@ -1358,16 +1425,19 @@ void horizontalAxisWindTurbinesALMAdvanced::updateTurbinesControlled()
 
     // Clear out the blades, nacelles, and towers controlled list and recalculate.
     bladesControlled.clear();
+    EVMlinesControlled.clear();
     nacellesControlled.clear();
     towersControlled.clear();
 
-    // If there are any blade, nacelle, or tower influence cells, than this
+    // If there are any blade, nacelle, or tower influence cells, than this   
     // processor controls those sampling/body force distribution points.
     for(int i = 0; i < numTurbines; i++)
     {
+       
         if (bladeInfluenceCells[i].size() > 0)
         {
             bladesControlled.append(i);
+            EVMlinesControlled.append(i);
         }
         if (nacelleInfluenceCells[i].size() > 0)
         {
@@ -1430,7 +1500,7 @@ void horizontalAxisWindTurbinesALMAdvanced::yawNacelle()
     {
         // Rotate the rotor apex first.
         rotorApex[i] = rotateVector(rotorApex[i], towerShaftIntersect[i], uvTower[i], deltaNacYaw[i]);
-
+       
         // Recompute the shaft unit vector since the shaft has rotated.
         uvShaft[i] = rotorApex[i] - towerShaftIntersect[i];
         uvShaft[i] = (uvShaft[i]/mag(uvShaft[i])) * uvShaftDir[i];
@@ -1680,26 +1750,32 @@ void horizontalAxisWindTurbinesALMAdvanced::findBladePointControlProcNo()
     // points of turbines that this processor controls.  Initialize the values to huge.
     List<scalar> minDisLocalBlade(totBladePoints,1.0E30);
     List<scalar> minDisGlobalBlade(totBladePoints,1.0E30);
-
+    
 
     forAll(bladesControlled, p)
-    {
-        int i = bladesControlled[p];
+    { 
+        
+       int i = bladesControlled[p];
+        
         int iterBlade = 0;
+       
+       
         if(i > 0)
         {
             for(int n = 0; n < i; n++)
             {
-                iterBlade += numBladePoints[n] * NumBl[turbineTypeID[n]];
+              iterBlade += numBladePoints[n] * NumBl[turbineTypeID[n]];
+                  
+
             }
         }
         
-        // Blade sampling points.
+        // Blade sampling points. 
         if (bladeActuatorPointInterpType[i] != "integral")
         {
             forAll(bladeSamplePoints[i], j)
             {
-                forAll(bladeSamplePoints[i][j], k)
+                forAll(bladeSamplePoints[i][j], k) 
                 {
                     // Find the cell that the sampling point lies within and the distance
                     // from the sampling point to that cell center.
@@ -1717,22 +1793,28 @@ void horizontalAxisWindTurbinesALMAdvanced::findBladePointControlProcNo()
                     }
                     minDisLocalBlade[iterBlade] = minDis;
                     minDisGlobalBlade[iterBlade] = minDis;
+                 
+                     
                     bladeMinDisCellID[i][j][k] = cellID;
-                    iterBlade++;
+                    iterBlade++; 
                 }
             }
         }
-    }
+    } 
 
     // Parallel gather/scatter the global minimum distance list and reduce it by keeping 
     // only the minimum values.
-    Pstream::gather(minDisGlobalBlade,minOp<List<scalar> >());
-    Pstream::scatter(minDisGlobalBlade);
-
+    Pstream::gather(minDisGlobalBlade,minOp<List<scalar> >()); 
+    //Info << "gatherBlade=" << minDisGlobalBlade << endl; 
+    Pstream::scatter(minDisGlobalBlade);    
+ 
      // Compare the global to local lists.  Where the lists agree, this processor controls
     // the actuator line point.
-    forAll(bladesControlled, p)
+    
+     forAll(bladesControlled, p)  
     {
+        
+       
         int i = bladesControlled[p];
         int iterBlade = 0;
         if(i > 0)
@@ -1740,6 +1822,8 @@ void horizontalAxisWindTurbinesALMAdvanced::findBladePointControlProcNo()
             for(int n = 0; n < i; n++)
             {
                 iterBlade += numBladePoints[n] * NumBl[turbineTypeID[n]];
+                
+               
             }
         }
         
@@ -1752,15 +1836,76 @@ void horizontalAxisWindTurbinesALMAdvanced::findBladePointControlProcNo()
                     if(minDisGlobalBlade[iterBlade] != minDisLocalBlade[iterBlade])
                     {
                         bladeMinDisCellID[i][j][k] = -1;
+                      
                     }
                     iterBlade++;
-                }
+                }   
             }
         }
     }
 }   
 
+ 
 
+void horizontalAxisWindTurbinesALMAdvanced::findEVMPointControlProcNo() 
+{ 
+    // Create a local and global list of minimum distance cells to velocity sampling 
+    // points of turbines that this processor controls.  Initialize the values to huge.
+    
+        forAll(EVMlinesControlled, t) 
+	{
+        int f=EVMlinesControlled[t];
+       
+        int iterEVM = 0;
+
+        if(f > 0)
+        {
+             for(int n = 0; n < t; n++)
+            {
+                iterEVM +=numBladePoints[n] * NumBl[turbineTypeID[n]]; 
+            }
+        }
+
+
+           
+        // EVM sampling points. 
+        if (bladeActuatorPointInterpType[f] != "integral")
+        {           
+                    for (int j=0; j< 3; j++)
+                    {
+                    	for (int k = 0; k < numBladePoints[0]; k++)
+                    	{
+                    		for (int m = 0; m <  numEVMPoints; m++)
+                    		{
+                        		// Find the cell that the sampling point lies within and the distance
+                        		// from the sampling point to that cell center.
+                        		label EVMcellID = bladeInfluenceCells[f][0];
+                        		Random rndGen(123456);
+
+                        		scalar minDis = mag(mesh_.C()[EVMcellID] - (EVMSamplePoints[f][j][k][m]+ perturb*(2.0*rndGen.vector01()-vector::one)));
+                        
+                        		forAll(bladeInfluenceCells[f], o)
+                        		{
+                            			scalar dis = mag(mesh_.C()[bladeInfluenceCells[f][o]] - (EVMSamplePoints[f][j][k][m]+ perturb*(2.0*rndGen.vector01()-vector::one)));
+                            			if(dis <= minDis)
+                            			{   
+                                		EVMcellID = bladeInfluenceCells[f][o];
+                            			}  
+                            			minDis = mag(mesh_.C()[EVMcellID] - (EVMSamplePoints[f][j][k][m]+perturb*(2.0*rndGen.vector01()-vector::one)));
+                        	        }
+                        		minDisLocalEVM[iterEVM] = minDis;
+                                  
+                        		minDisGlobalEVM[iterEVM] = minDis;
+                       		        EVMMinDisCellID[f][j][k][m]=EVMcellID;
+                                        iterEVM++;  
+                                                    
+                       
+                    		}
+                    	}	
+        	} 
+    }
+}
+}
 
 void horizontalAxisWindTurbinesALMAdvanced::findNacellePointControlProcNo()
 {
@@ -1915,7 +2060,7 @@ void horizontalAxisWindTurbinesALMAdvanced::findTowerPointControlProcNo()
     }
 } 
 
-
+ 
 void horizontalAxisWindTurbinesALMAdvanced::updateRadius(int turbineNumber)
 {
     // This computes the radius normal to turbine i's main shaft axis of
@@ -1932,7 +2077,7 @@ void horizontalAxisWindTurbinesALMAdvanced::updateRadius(int turbineNumber)
         vector zP = vector::zero;
         vector vP = vector::zero;
         vector v = vector::zero;
-
+        
         v = U_.mesh().C()[cellI] - rotorApex[i];
         zP.z() = 1.0;
         xP = uvShaft[i];
@@ -1943,87 +2088,193 @@ void horizontalAxisWindTurbinesALMAdvanced::updateRadius(int turbineNumber)
         zP /= mag(zP);
         vP = transformVectorCartToLocal(v,xP,yP,zP);
         rFromShaft[cellI] = Foam::sqrt(Foam::sqr(vP.y()) + Foam::sqr(vP.z()));
+       
     }
 }
 
 
 void horizontalAxisWindTurbinesALMAdvanced::computeBladePointWindVectors()
-{
+{    
     // Create a list of wind velocity in x, y, z coordinates for each blade sample point.
     List<vector> bladeWindVectorsLocal(totBladePoints,vector::zero);
+    scalar button=0.0;
+    scalar button2=0.0;
     
     // If linear interpolation of the velocity from the CFD mesh to the actuator
     // points is used, we need velocity gradient information.
     gradU = fvc::grad(U_);
-
-    forAll(bladesControlled, p)
+    forAll(bladesControlled, p) 
     {
-        int i = bladesControlled[p];
-        int iterBlade = 0;
-        if(i > 0)
-        {
-            for(int n = 0; n < i; n++)
-            {
-                iterBlade += numBladePoints[n] * NumBl[turbineTypeID[n]];
-            }
-        }
-        
+
+        int i = bladesControlled[p]; 
+        int iterBlade0 = 0;                    //_cla2209  
+        button=1;
+       
         forAll(bladePoints[i], j)
         {
-            forAll(bladePoints[i][j], k)
+           
+              
+            if(i > 0)
+            {
+            	for(int n = 0; n < i; n++)
+            	{
+                	iterBlade0 += numBladePoints[n] * NumBl[turbineTypeID[n]];
+           	}	
+            }
+
+
+            forAll(bladePoints[i][j], k )
             {
                 vector velocity(vector::zero);
                 vector point = bladeSamplePoints[i][j][k];
                 label cellID = bladeMinDisCellID[i][j][k];
 
+                
                 // Cell-center or linear interpolated velocity require velocity and
                 // velocity gradient information only at one cell, defined in the 
                 // findControlProcNo() function above.  Therefore, information feeding
                 // a particular blade point does not go across processor boundaries.
                 // Integral sampling, though, does go across processor boundaries
                 // and does not use information from findControlProcNo().
-                if(((bladeActuatorPointInterpType[i] == "cellCenter") || (bladeActuatorPointInterpType[i] == "linear")) && 
-                     cellID != -1)
-                {
+               
+
+ 		if(((bladeActuatorPointInterpType[i] == "cellCenter") || (bladeActuatorPointInterpType[i] == "linear")) && 
+                   cellID != -1)              
+ 		{
                     // If the velocity interpolation is "cellCenter", then just use 
                     // the velocity at the center of the cell within which this
                     // actuator point lies.  
                     if(bladeActuatorPointInterpType[i] == "cellCenter")
-                    {
+                    {   
                         #include "velocityInterpolation/cellCenter.H"
                     }
-
                     // But if linear interpolation is used, use cell center plus a 
                     // correction based on the local velocity gradient.
                     else if(bladeActuatorPointInterpType[i] == "linear")
                     {
-                        #include "velocityInterpolation/linear.H"
+                        #include "velocityInterpolation/linear.H" 
                     }
                 }
-
-                else if (bladeActuatorPointInterpType[i] == "integral")
+                else if (bladeActuatorPointInterpType[i] == "integral")  
                 {
-                    // Use a projection function weighted integrated velocity.
+                    // Use a projection function weighted integrated velocity. 
                     #include "velocityInterpolation/integral.H"
                 }
 
                 // Set the local wind vector list to the velocity sampled above
                 // and move on to the next blade point.
-                bladeWindVectorsLocal[iterBlade] = velocity;
-                iterBlade++;
+                bladeWindVectorsLocal[iterBlade0] = velocity;
+                updateRadius(0);
+                iterBlade0++;
             }
-        }
+        }   
     }
 
+
+    // EVM
+    if(velEvalType[0]=="EVM") 
+    {
+    forAll(bladesControlled, p)
+    {
+
+        int i = bladesControlled[p];
+ 
+        int iterBlade=0; 
+        forAll(bladePoints[i], j)
+        {        
+        forAll(bladePoints[i][j], k )
+        {       
+                vector point = bladeSamplePoints[i][j][k];
+                computeBladeAlignedVectors();
+                vector alignedvector1=bladeAlignedVectors[i][j][1];
+                vector alignedvector2=bladeAlignedVectors[i][j][2];
+                vector alignedvector0=bladeAlignedVectors[i][j][0];
+                label cellID=bladeMinDisCellID[i][j][k];
+                rotOmega=rotorSpeed[i];
+                radius=rFromShaft[cellID]; 
+                meanRelVel=bladeWindVectorsLocal[iterBlade];
+
+
+	                if(cellID!=-1)
+        	        {  
+            			#include "velocityInterpolation/velocityEvaluation/EVM.H"
+                	}
+
+                	        
+        	iterBlade++;
+        }
+   	}
+    }
+
+    forAll(bladePoints[0],j)
+    {
+    	forAll(bladePoints[0][j], k)
+        {       
+                for(int m=0; m< numEVMPoints; m++)
+                {
+        		Pstream::gather(EVMSamplePoints[0][j][k][m],maxMagSqrOp<vector>());
+                	Pstream::scatter(EVMSamplePoints[0][j][k][m]);                     //      distribuisci punti EVM
+                }
+        }
+    }	
+
+
+    findEVMPointControlProcNo();
+    #include "find2.H"
+    int iterBlade2=0; 
+     
+       
+    forAll(bladePoints[0], j)
+    {
+    	forAll(bladePoints[0][j], k )
+        {       
+    
+        	velocityEVM=vector::zero;
+                int count=0;
+                for (int m = 0; m < numEVMPoints; m++)
+                {      
+                	EVMcellID= EVMMinDisCellID[0][j][k][m];
+                        if(EVMcellID > -1)
+                        {       
+                        	velocityEVM=velocityEVM + U_[EVMcellID];
+                                button2=1;
+                                count++;
+                        }
+               	}
+                 
+                Pstream::gather(count, sumOp<int>());
+                Pstream::scatter(count); 
+
+                if(count!= 0)
+                {
+                 Pstream::gather(velocityEVM,sumOp<vector>());
+                 Pstream::scatter(velocityEVM);
+                 velocityEVM=velocityEVM/count;
+                } 
+
+                if((button2==1)&&(mag(velocityEVM) != 0))
+                {   
+                      bladeWindVectorsLocal[iterBlade2]=velocityEVM;         
+                }
+        }
+              
+        button2=0;
+        iterBlade2++;
+   }
+}
+    
     // Perform a parallel gather of this local list to the master processor and
     // and then parallel scatter the list back out to all the processors.
-    Pstream::gather(bladeWindVectorsLocal,sumOp<List<vector> >());
-    Pstream::scatter(bladeWindVectorsLocal);
-
-
-    // Put the gathered/scattered wind vectors into the windVector variable.
-    // Proceed turbine by turbine.
+    for(int lala=0; lala<totBladePoints; lala++)
+    {
+        Pstream::gather(bladeWindVectorsLocal[lala],maxMagSqrOp<vector>());
+   	Pstream::scatter(bladeWindVectorsLocal[lala]);
+    }
+    
     int iterBlade = 0;
+    
+    //Put the gathered/scattered wind vectors into the windVector variable.
+    // Proceed turbine by turbine.
     forAll(bladeWindVectors, i)
     {
         // Proceed blade by blade.
@@ -2031,12 +2282,13 @@ void horizontalAxisWindTurbinesALMAdvanced::computeBladePointWindVectors()
         { 
             // Proceed point by point.
             forAll(bladeWindVectors[i][j], k)
-            {
+            { 
                 // Zero the wind vector and put in the correct velocity.
                 bladeWindVectors[i][j][k] = vector::zero;
                 bladeWindVectors[i][j][k] = bladeWindVectorsLocal[iterBlade];
-
-                // ******* OVERRIDE FOR TESTING 2D CASE
+              
+                
+                // ******* OVERRIDE FOR TESTING 2D CASE 
                 //vector v = vector::zero;
                 //v.x() = 60.0;
                 //bladeWindVectors[i][j][k] = v;
@@ -2046,6 +2298,7 @@ void horizontalAxisWindTurbinesALMAdvanced::computeBladePointWindVectors()
             }
         }
     }
+//Pout << "bwv=" << bladeWindVectors[0][0][3] << endl;
 }
 
 
@@ -2091,7 +2344,7 @@ void horizontalAxisWindTurbinesALMAdvanced::computeNacellePointWindVectors()
             // correction based on the local velocity gradient.
             else if (nacelleActuatorPointInterpType[i] == "linear")
             {
-               #include "velocityInterpolation/linear.H"
+               #include "velocityInterpolation/linear1.H"
             }
 
             nacelleWindVectorLocal[iterNacelle] = velocity;           
@@ -2163,7 +2416,7 @@ void horizontalAxisWindTurbinesALMAdvanced::computeTowerPointWindVectors()
                 // correction based on the local velocity gradient.
                 else if (towerActuatorPointInterpType[i] == "linear")
                 {
-                    #include "velocityInterpolation/linear.H"
+                    #include "velocityInterpolation/linear1.H"
                 }
 
                 towerWindVectorsLocal[iterTower] = velocity;
@@ -2197,7 +2450,7 @@ void horizontalAxisWindTurbinesALMAdvanced::computeTowerPointWindVectors()
 }
 
 
-void horizontalAxisWindTurbinesALMAdvanced::computeBladeAlignedVectors()
+void horizontalAxisWindTurbinesALMAdvanced::computeBladeAlignedVectors() 
 {
     forAll(bladePoints,i)
     {
@@ -2210,7 +2463,7 @@ void horizontalAxisWindTurbinesALMAdvanced::computeBladeAlignedVectors()
                 bladeAlignedVectors[i][j][2] =   bladePoints[i][j][0] - rotorApex[i];
                 bladeAlignedVectors[i][j][2] =   bladeAlignedVectors[i][j][2]/mag(bladeAlignedVectors[i][j][2]);
             }
-            else if (rotationDir[i] == "ccw")
+            else if (rotationDir[i] == "ccw")  
             {
                 bladeAlignedVectors[i][j][2] = -(bladePoints[i][j][0] - rotorApex[i]);
                 bladeAlignedVectors[i][j][2] =   bladeAlignedVectors[i][j][2]/mag(bladeAlignedVectors[i][j][2]);
@@ -2248,9 +2501,10 @@ void horizontalAxisWindTurbinesALMAdvanced::computeBladePointForce()
             forAll(bladeWindVectors[i][j], k)
             {
                 vector bladeWindVectorsInt = bladeWindVectors[i][j][k];
+           
 
                 // Zero the wind vector.
-                bladeWindVectors[i][j][k] = vector::zero;
+                bladeWindVectors[i][j][k] = vector::zero; 
 
                 // Now put the velocity in that cell into blade-oriented coordinates and add on the
                 // velocity due to blade rotation.
@@ -2274,7 +2528,7 @@ void horizontalAxisWindTurbinesALMAdvanced::computeBladePointForce()
         rotorHorizontalForce[i] = 0.0;
         rotorVerticalForce[i] = 0.0;
 
-        // Get necessary axes.
+        // Get necessary axes.i
         vector axialVector = uvShaft[i];
         axialVector.z() = 0.0;
         axialVector = axialVector / mag(axialVector);
@@ -2293,19 +2547,43 @@ void horizontalAxisWindTurbinesALMAdvanced::computeBladePointForce()
                 // Find the local velocity magnitude compose of only the axial and tangential flow (do
                 // not include the radial (along blade span) flow).
                 bladePointVmag[i][j][k] = Foam::pow((Foam::pow(bladeWindVectors[i][j][k].x(),2) + Foam::pow(bladeWindVectors[i][j][k].y(),2)),0.5);
-
                 // Get the angle of the wind with respect to rotor plane tangent direction.
-                scalar windAng = Foam::atan2(bladeWindVectors[i][j][k].x(),bladeWindVectors[i][j][k].y())/degRad; 
-
+                scalar windAng = Foam::atan2(bladeWindVectors[i][j][k].x(),bladeWindVectors[i][j][k].y())/degRad;
+               
                 // Angle of attack is local angle of wind with respect to rotor plane tangent minus local twist.
                 bladePointAlpha[i][j][k] = windAng - bladePointTwist[i][j][k] - bladePitch[i];
-
-                //Info << j << tab << k << tab << bladePointAlpha[i][j][k] << endl;
-
-                // Use airfoil look-up tables to get coefficient of bladePointLift and drag.
-                bladePointCl[i][j][k] = interpolate(bladePointAlpha[i][j][k], airfoilAlpha[bladePointAirfoil[i][j][k]], airfoilCl[bladePointAirfoil[i][j][k]]);
-                bladePointCd[i][j][k] = interpolate(bladePointAlpha[i][j][k], airfoilAlpha[bladePointAirfoil[i][j][k]], airfoilCd[bladePointAirfoil[i][j][k]]);
-
+             
+                scalar toll=1e-04;
+                scalar alfaRefNew=bladePointAlpha[i][j][k];
+                scalar alfaRefOld=1e10; //VLARGE
+                dalfa=0; 
+                if (velEvalType[i]=="EVM")
+                {
+                    while (mag(alfaRefNew-alfaRefOld)>toll)
+                    {
+                        alfaRefOld=alfaRefNew;
+                        // Use airfoil look-up tables to get coefficient of lift and drag.
+                        bladePointCl[i][j][k] = interpolate<scalar>(alfaRefNew, airfoilAlpha[bladePointAirfoil[i][j][k]], airfoilCl[bladePointAirfoil[i][j][k]]);
+                        bladePointCd[i][j][k] = interpolate<scalar>(alfaRefNew, airfoilAlpha[bladePointAirfoil[i][j][k]], airfoilCd[bladePointAirfoil[i][j][k]]);
+                        //Calculate correction
+                        dalfa=(bladePointChord[i][j][k]/meshDim)*(1.2553-0.0552*bladePointCd[i][j][k])*bladePointCl[i][j][k];      
+                        alfaRefNew=bladePointAlpha[i][j][k]-dalfa;       
+                    }  
+                angCorr=(windAng-dalfa)*degRad;
+                //bladePointAlpha[i][j][k]=alfaRefNew;
+                //bladeWindVectors[i][j][k].y()=(bladePointVmag[i][j][k]*cos(angCorr));
+                //bladeWindVectors[i][j][k].x()=(bladePointVmag[i][j][k]*sin(angCorr));
+                }
+                
+                else 
+                {
+                 // Use airfoil look-up tables to get coefficient of lift and drag.
+                        bladePointCl[i][j][k] = interpolate<scalar>(alfaRefNew, airfoilAlpha[bladePointAirfoil[i][j][k]], airfoilCl[bladePointAirfoil[i][j][k]]);
+                        bladePointCd[i][j][k] = interpolate<scalar>(alfaRefNew, airfoilAlpha[bladePointAirfoil[i][j][k]], airfoilCd[bladePointAirfoil[i][j][k]]);
+                }
+   
+             
+                  
                 // Correct the streamwise velocity to account for drag using the Martinez correction.
                 if (velocityDragCorrType[i] == "Martinez")
                 {
@@ -2361,28 +2639,30 @@ void horizontalAxisWindTurbinesALMAdvanced::computeBladePointForce()
 
                     F = Ftip * Froot;
                 }
-
                 // Using Cl, Cd, wind velocity, chord, and actuator element width, calculate the
                 // lift and drag per density.
                 bladePointCl[i][j][k] *= F;
-                bladePointCd[i][j][k] *= F;
+                bladePointCd[i][j][k] *= F; 
                 bladePointLift[i][j][k] = 0.5 * bladePointCl[i][j][k] * bladePointVmag[i][j][k] * bladePointVmag[i][j][k] * bladePointChord[i][j][k] * bladeDs[i][k];
                 bladePointDrag[i][j][k] = 0.5 * bladePointCd[i][j][k] * bladePointVmag[i][j][k] * bladePointVmag[i][j][k] * bladePointChord[i][j][k] * bladeDs[i][k];
 
                 // Make the scalar bladePointLift and drag quantities vectors in the Cartesian coordinate system.
+                
                 vector dragVector = bladeAlignedVectors[i][j][0]*bladeWindVectors[i][j][k].x() + bladeAlignedVectors[i][j][1]*bladeWindVectors[i][j][k].y();
                 dragVector = dragVector/mag(dragVector);
-
-                vector liftVector = dragVector^bladeAlignedVectors[i][j][2];
+               
+                vector liftVector = dragVector^bladeAlignedVectors[i][j][2]; 
                 liftVector = liftVector/mag(liftVector);
+                
+                             
+              
 
                 liftVector = -bladePointLift[i][j][k] * liftVector;
                 dragVector = -bladePointDrag[i][j][k] * dragVector;
 
                 // Add up bladePointLift and drag to get the resultant force/density applied to this blade element.
                 bladePointForce[i][j][k] = liftVector + dragVector;
-                //Info << "bladePointForce = " <<  bladePointForce[i][j][k] << endl;
-
+                    
                 // Find the component of the blade element force/density in the different directions.
                 // Axial is horizontal but aligned with the shaft.
                 // Horizontal is horizontal but perpendicular to axial.
@@ -2391,7 +2671,6 @@ void horizontalAxisWindTurbinesALMAdvanced::computeBladePointForce()
                 bladePointHorizontalForce[i][j][k] = -bladePointForce[i][j][k] & horizontalVector;
                 bladePointVerticalForce[i][j][k] = -bladePointForce[i][j][k] & verticalVector;
                 bladePointTorque[i][j][k] = (bladePointForce[i][j][k] & bladeAlignedVectors[i][j][1]) * bladePointRadius[i][j][k] * cos(PreCone[m][j]);
-
                 // Add this blade element's contribution to the total turbine forces/moments.
                 rotorAxialForce[i] += bladePointAxialForce[i][j][k];
                 rotorHorizontalForce[i] += bladePointHorizontalForce[i][j][k];
@@ -2402,7 +2681,7 @@ void horizontalAxisWindTurbinesALMAdvanced::computeBladePointForce()
 
         // Compute rotor power based on aerodynamic torque and rotation speed.
         rotorPower[i] = rotorTorque[i] * rotorSpeed[i];
-
+       
         // Compute the generator electrical power.
         generatorPower[i] = generatorTorque[i] * (rotorSpeed[i] * GBRatio[m]) * GenEfficiency[m];
     }
@@ -2449,7 +2728,7 @@ void horizontalAxisWindTurbinesALMAdvanced::computeNacellePointForce()
                 // We assume the nacelle creates drag only.  Divide the drag up into portions
                 // for each nacelle point based on the ratio of nacelle element length to total
                 // nacelle length.
-                scalar contribution = nacelleDs[i][j] / NacelleLength[m];
+                scalar contribution = nacelleDs[i][j] / NacelleLength[i];
 
                 if (nacelleForceProjectionType[i] == "advanced2")
                 {  
@@ -2551,8 +2830,8 @@ void horizontalAxisWindTurbinesALMAdvanced::computeTowerPointForce()
                 towerPointAlpha[i][j] = windAng - nacelleAng + towerPointTwist[i][j];
 
                 // Use airfoil look-up tables to get coefficient of bladePointLift and drag.
-                towerPointCl[i][j] = interpolate(towerPointAlpha[i][j], airfoilAlpha[towerPointAirfoil[i][j]], airfoilCl[towerPointAirfoil[i][j]]);
-                towerPointCd[i][j] = interpolate(towerPointAlpha[i][j], airfoilAlpha[towerPointAirfoil[i][j]], airfoilCd[towerPointAirfoil[i][j]]);
+                towerPointCl[i][j] = interpolate<scalar>(towerPointAlpha[i][j], airfoilAlpha[towerPointAirfoil[i][j]], airfoilCl[towerPointAirfoil[i][j]]);
+                towerPointCd[i][j] = interpolate<scalar>(towerPointAlpha[i][j], airfoilAlpha[towerPointAirfoil[i][j]], airfoilCd[towerPointAirfoil[i][j]]);
 
                 // Using Cl, Cd, wind velocity, chord, and actuator element width, calculate the
                 // lift and drag per density.
@@ -2741,8 +3020,9 @@ void horizontalAxisWindTurbinesALMAdvanced::computeBladeBodyForce()
                             vector localVelocity = U_[bladeInfluenceCells[i][m]];
 
                             // Add on the relative velocity due to blade rotation.
-                            localVelocity += rFromShaft[bladeInfluenceCells[i][m]] * rotorSpeed[i] * bladeAlignedVectors[i][j][1];
-                            Urel[bladeInfluenceCells[i][m]] = localVelocity;
+                            localVelocity += rFromShaft[bladeInfluenceCells[i][m]] * rotorSpeed[i] * bladeAlignedVectors[i][j][1];  
+                            Urel[bladeInfluenceCells[i][m]] = localVelocity;  
+                           
 
                             // Compute the body force contribution.
                             if ((bladeForceProjectionDirection[i] == "localVelocityAligned") ||
@@ -2769,10 +3049,11 @@ void horizontalAxisWindTurbinesALMAdvanced::computeBladeBodyForce()
 
                                 vector dragVector = bladeAlignedVectors[i][j][0]*bladeWindVectors[i][j][k].x() + bladeAlignedVectors[i][j][1]*bladeWindVectors[i][j][k].y();
                                 dragVector = dragVector/mag(dragVector);
-
+                                
+                                
                                 vector liftVector = dragVector^bladeAlignedVectors[i][j][2];
                                 liftVector = liftVector/mag(liftVector);
-
+                               
                                 forceLift = (force & liftVector) * mesh_.V()[bladeInfluenceCells[i][m]];
                                 forceDrag = (force & dragVector) * mesh_.V()[bladeInfluenceCells[i][m]];
                                 forceLiftSum += forceLift;
@@ -2805,10 +3086,10 @@ void horizontalAxisWindTurbinesALMAdvanced::computeBladeBodyForce()
                         }
                     }
 
-                    // Parallel sum the integrated body force lift and +/- drag.
-                    if (bladeForceProjectionDirection[i] == "localVelocityAlignedCorrected")
+                    // Parallel sum the integrated body force lift and +/- drag.  
+                    if (bladeForceProjectionDirection[i] == "localVelocityAlignedCorrected") 
                     {
-                        reduce(forceLiftSum,sumOp<scalar>());
+                        reduce(forceLiftSum,sumOp<scalar>()); 
                         reduce(forceDragPosSum,sumOp<scalar>());
                         reduce(forceDragNegSum,sumOp<scalar>());
                         reduce(forceSum,sumOp<vector>()); 
@@ -2875,12 +3156,15 @@ void horizontalAxisWindTurbinesALMAdvanced::computeBladeBodyForce()
                                 // Equation 2 from Spalart.
                                 vector force = -((c*w)/2.0) * Uhat * ((localVelocity ^ (Cl*ez)) + (Cd * localVelocity)) * spreading;
 
+
                                 // Transform to the local lift, drag, span coordinate system.
                                 vector dragVector = bladeAlignedVectors[i][j][0]*bladeWindVectors[i][j][k].x() + bladeAlignedVectors[i][j][1]*bladeWindVectors[i][j][k].y();
                                 dragVector = dragVector/mag(dragVector);
-
+                           
                                 vector liftVector = dragVector^bladeAlignedVectors[i][j][2];
                                 liftVector = liftVector/mag(liftVector);
+                               
+
 
                                 vector forceP = transformVectorCartToLocal(force,liftVector,dragVector,ez);
 
@@ -3194,7 +3478,7 @@ void horizontalAxisWindTurbinesALMAdvanced::computeTowerBodyForce()
                         {
                             scalar pi = constant::mathematical::pi;
                           
-                            scalar windAng = Foam::atan2(-towerWindVectors[i][j].y(),-towerWindVectors[i][j].x());
+                            windAng = Foam::atan2(-towerWindVectors[i][j].y(),-towerWindVectors[i][j].x());
                           //scalar windAng = Foam::atan2(0.0,-10.0);
                             if (windAng < 0.0)
                             {
@@ -3478,7 +3762,7 @@ vector horizontalAxisWindTurbinesALMAdvanced::transformVectorLocalToCart(vector 
 
 
 
-
+/*
 scalar horizontalAxisWindTurbinesALMAdvanced::interpolate(scalar xNew, DynamicList<scalar>& xOld, DynamicList<scalar>& yOld)
 {
     label index = 0;
@@ -3585,6 +3869,69 @@ label horizontalAxisWindTurbinesALMAdvanced::interpolate(scalar xNew, DynamicLis
         return 0.0;
     }
 }
+*/
+template<class Type>
+Type horizontalAxisWindTurbinesALMAdvanced::interpolate
+(
+    scalar x,
+   	List<scalar> &xOld,
+    List<Type> &yOld
+)
+{
+    label n = xOld.size();
+
+    label lo = 0;
+    for (lo=0; lo<n && xOld[lo]>x; ++lo)
+    {}
+
+    label low = lo;
+    if (low < n)
+    {
+        for (label i=low; i<n; ++i)
+        {
+            if (xOld[i] > xOld[lo] && xOld[i] <= x)
+            {
+                lo = i;
+            }
+        }
+    }
+
+    label hi = 0;
+    for (hi=0; hi<n && xOld[hi]<x; ++hi)
+    {}
+
+    label high = hi;
+    if (high < n)
+    {
+        for (label i=high; i<n; ++i)
+        {
+            if (xOld[i] < xOld[hi] && xOld[i] >= x)
+            {
+                hi = i;
+            }
+        }
+    }
+
+
+    if (lo<n && hi<n && lo != hi)
+    {
+        return yOld[lo]
+            + ((x - xOld[lo])/(xOld[hi] - xOld[lo]))*(yOld[hi] - yOld[lo]);
+    }
+    else if (lo == hi)
+    {
+        return yOld[lo];
+    }
+    else if (lo == n)
+    {
+        return yOld[hi];
+    }
+    else
+    {
+        return yOld[lo];
+    }
+}
+
 
 scalar horizontalAxisWindTurbinesALMAdvanced::compassToStandard(scalar dir)
 {
@@ -3651,8 +3998,9 @@ void horizontalAxisWindTurbinesALMAdvanced::update()
         for(int i = 0; i < numTurbines; i++)
         {
             if (deltaNacYaw[i] != 0.0)
-            {
+            {   
                 findRotorSearchCells(i);
+             
                 if (includeNacelle[i])
                 {
                     findNacelleSearchCells(i);
@@ -3660,11 +4008,13 @@ void horizontalAxisWindTurbinesALMAdvanced::update()
                 if (includeTower[i])
                 {
                     findTowerSearchCells(i);
+            
                 }
             }
         }
+     
         updateTurbinesControlled();
-
+     
         // Recompute the blade-aligned coordinate system.
         computeBladeAlignedVectors();
 
@@ -3676,6 +4026,7 @@ void horizontalAxisWindTurbinesALMAdvanced::update()
                 (deltaNacYaw[i] != 0.0))
             {
                 updateRadius(i);
+              
             }
         }
     }
@@ -3694,7 +4045,7 @@ void horizontalAxisWindTurbinesALMAdvanced::update()
         for(int i = 0; i < numTurbines; i++)
         {
             if (deltaNacYaw[i] != 0.0)
-            {
+            {   
                 findRotorSearchCells(i);
                 if (includeNacelle[i])
                 {
@@ -3706,7 +4057,7 @@ void horizontalAxisWindTurbinesALMAdvanced::update()
                 }
             }
         }
-
+       
         updateTurbinesControlled();
 
         // Recompute the blade-aligned coordinate system.
@@ -3726,6 +4077,7 @@ void horizontalAxisWindTurbinesALMAdvanced::update()
         // Find out which processor controls which actuator point,
         // and with that information sample the wind at the actuator
         // points.
+     
         findBladePointControlProcNo();
         findNacellePointControlProcNo();
         findTowerPointControlProcNo();
@@ -3772,7 +4124,7 @@ void horizontalAxisWindTurbinesALMAdvanced::update()
         printOutputFiles();
     }
 
-    // Now that at least the first time step is finished, set pastFirstTimeStep
+    // Now that at least the first time step is finished, set pastFirstTimeStep 
     // to true.
     pastFirstTimeStep = true;
 }
@@ -3816,7 +4168,7 @@ void horizontalAxisWindTurbinesALMAdvanced::openOutputFiles()
         }
 
 
-    // BLADE-POINT RELATED FILES
+    // BLADE-POINT RELATED FILES  
         bladePointAlphaFile_ = new OFstream(rootDir/time/"bladePointAlpha");
        *bladePointAlphaFile_ << "#Turbine    Blade    Time(s)    dt(s)    angle-of-attack (degrees)" << endl;
 
@@ -3824,7 +4176,7 @@ void horizontalAxisWindTurbinesALMAdvanced::openOutputFiles()
        *bladePointVmagFile_ << "#Turbine    Blade    Time(s)    dt(s)    Vmag (m/s)" << endl;
     
         bladePointVaxialFile_ = new OFstream(rootDir/time/"bladePointVaxial");
-       *bladePointVaxialFile_ << "#Turbine    Blade    Time(s)    dt(s)    Vaxial (m/s)" << endl;
+       *bladePointVaxialFile_ << "#Turbine    Blade    Time(s)    dt(s)    Vaxial (m/s)" << endl; 
 
         bladePointVtangentialFile_ = new OFstream(rootDir/time/"bladePointVtangential");
        *bladePointVtangentialFile_ << "#Turbine    Blade    Time(s)    dt(s)    Vtangential (m/s)" << endl;
@@ -4251,7 +4603,7 @@ void horizontalAxisWindTurbinesALMAdvanced::printOutputFiles()
         *towerPointCdFile_ << endl;
         *towerPointLiftFile_ << endl;
         *towerPointDragFile_ << endl;
-        *towerPointAxialForceFile_ << endl;
+        *towerPointAxialForceFile_ << endl; 
         *towerPointHorizontalForceFile_ << endl;
         *towerPointVerticalForceFile_ << endl;
     }
@@ -4260,7 +4612,7 @@ void horizontalAxisWindTurbinesALMAdvanced::printOutputFiles()
      
 void horizontalAxisWindTurbinesALMAdvanced::printDebug()
 {
-    Info << "Print Debugging Information" << endl;
+    Info << "Print Debugging Information" << endl;        
     Info << "turbineType = " << turbineType << endl;
     Info << "includeNacelle = " << includeNacelle << endl;
     Info << "includeTower = " << includeTower << endl;

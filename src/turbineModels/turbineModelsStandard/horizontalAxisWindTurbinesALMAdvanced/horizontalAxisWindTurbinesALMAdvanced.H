@@ -65,11 +65,17 @@ SourceFiles
 #include "OFstream.H"
 #include "fvCFD.H"
 #include "Random.H"
+#include "fvMeshSubset.H"
+#include "interpolation.H" //- Need by Uinter.
+#include "treeDataFace.H"
+#include "indexedOctree.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 namespace Foam
 {
+class fvMeshSubset;
+
 namespace turbineModels
 {
 
@@ -118,6 +124,11 @@ private:
         //  CFD gridto the actuator line.
         volTensorField gradU;
 
+        // Z direction, useful as auxiliar vector
+        vector bladeDir;
+
+
+
         //- Body force field applied to fluid by turbine.
         volVectorField bodyForce;
         volScalarField gBlade;
@@ -139,7 +150,7 @@ private:
         //  step to write on the exact interval. 
         word outputControl;
 
-        //- The inteveral over which to write out turbine data.
+        //- The interval over which to write out turbine data.
         scalar outputInterval;
 
         //- Last time when output written.
@@ -187,6 +198,12 @@ private:
             DynamicList<word> bladePointDistType;
             DynamicList<word> towerPointDistType;
             DynamicList<word> nacellePointDistType;
+            
+            //- List of approaches for the velocity evaluation. Options
+            // are "local" or "EVM". Local is taken in the force application point
+            // (assuming that the bound vortex induction is null there). EVM takes
+            // the average of the velocities taken on an appropriate sampling line _CLAU
+            DynamicList<word> velEvalType;
 
             //- List of description of how velocity field is interpolated from the 
             //  CFD mesh to the actuator line points.  Options are "cellCenter", "linear",
@@ -284,6 +301,7 @@ private:
             //  above) or counter-clockwise rotation for a counter-clockwise
             //  rotating turbine.
             DynamicList<scalar> rotorSpeed;
+            scalar rotOmega;
 
             //- Filtered rotor speed that is fed to the controllers (rpm).
             DynamicList<scalar> rotorSpeedF;
@@ -506,6 +524,9 @@ private:
 
                 //- Station along blade in which information is given (m).
                 DynamicList<DynamicList<scalar> > BladeStation;
+                
+                // Previous Station _Clau
+                DynamicList<DynamicList<scalar> > BladeStationOld;
 
                 //- Chord at this station (m).
                 DynamicList<DynamicList<scalar> > BladeChord;
@@ -571,6 +592,7 @@ private:
         //- Important Actuator Line Geometry Data.
             //- List of rotors, nacelles, and tower that this processor can forseeably control.
             DynamicList<label> bladesControlled;
+            DynamicList<label> EVMlinesControlled;
             DynamicList<label> nacellesControlled;
             DynamicList<label> towersControlled;
 
@@ -578,8 +600,15 @@ private:
             //  point on theprocessor in control of that point.  If the value is -1,
             //  then this processor is not in control of this point.
             DynamicList<List<List<label> > > bladeMinDisCellID;
+            DynamicList<List<List<List<label> > > > EVMMinDisCellID;
+            List<scalar> minDisGlobalEVM;
+            List<scalar> minDisLocalEVM;
             DynamicList<label> nacelleMinDisCellID;
             DynamicList<List<label> > towerMinDisCellID;
+            int trb;
+            int bld;
+            int pt;
+            vector velocityEVM;
 
             //- List of locations of the intersection of the tower axis and the shaft 
             //  centerline relative to the origin (m).
@@ -604,6 +633,7 @@ private:
             DynamicList<List<List<vector> > > bladePoints;
             DynamicList<List<List<vector> > > bladeSamplePoints;
 
+ 
             //- Actuator line point locations with respect to origin.
             DynamicList<List<vector> > towerPoints;
             DynamicList<List<vector> > towerSamplePoints;
@@ -621,11 +651,14 @@ private:
 
             //- Total actuator line points in blade, nacelle, and tower arrays.
             int totBladePoints;
+            int totEVMPoints;
             int totTowerPoints;
             int totNacellePoints;
 
             //- Blade radius away from rotor apex.  Must take into account coning.
             DynamicList<List<List<scalar> > > bladePointRadius;
+            scalar radius;
+         
 
             //- Blade chord, twist, thickness, user defined quantity, and airfoil type
             //  interpolated to the blade actuator elements from the blade definition.
@@ -679,6 +712,9 @@ private:
             //  vector 0 is not perfectly aligned with downstream due to rotor coning  
             //  and nacelle tilt).
             DynamicList<List<List<vector> > > bladeAlignedVectors;
+            vector alignedvector1;
+            vector alignedvector2;
+            vector alignedvector0;
 
             //- Wind vector at each blade, tower, or nacelle actuator point in
             //  geometry-aligned coordinate system (i.e., bladeWindVectors are in the
@@ -686,6 +722,88 @@ private:
             DynamicList<List<List<vector> > > bladeWindVectors;
             DynamicList<vector> nacelleWindVector;
             DynamicList<List<vector> > towerWindVectors;
+            
+         // Quantities needed for EVM _CLAU
+
+            // Actuator Points Labels 
+            //DynamicList<List<List<label> > > ALptsLabels;
+            
+            //- Mean Velocity field.
+	        volVectorField Umean; //Undisturbed velocity    
+
+            // List of vectors to initialize meanRelVelOld (they depend on the type of turbine) 
+            // DynamicList<vector> meanRelVelOld;
+            vector meanRelVel;
+
+            // EVM sample line dictionary
+            dictionary EVMsetting;
+          
+            // EVM sample line parameters.
+	        scalar EVMdist;
+	        scalar EVMlength;
+            scalar EVMrf;
+            scalar meshDim;
+            scalar numEVMPoints;
+           
+
+            //EVM pStart, pEnd, pMid
+            DynamicList<List<List<List<vector> > > > EVMSamplePoints;
+            
+            //List<label> EVMSampleCells;
+          
+            point EVMPoint;
+            label EVMcellID;
+            //point pStart;
+            //point pEnd;
+            //point pMid;
+            
+            //- Mean relative velocity versor in the examined point
+            vector meanRelVelVersor;
+            DynamicList<vector> bladePtsMeanRelVelVersor;
+
+         
+
+            //EVM sampling direction
+            vector EVMsampDir;
+          
+            // Dimension of the blade Points
+            //DynamicList<List<List<scalar> > > bladePtsMeshDimension;
+           
+
+            // Total length of the sampling line
+            scalar totLength; 
+
+
+            // Blade direction from hubPosition
+            DynamicList<vector> bladeWay;
+
+            // Auxiliary velocity for meanRelVel initialization
+            DynamicList<vector> velTraslAux;
+        //end of EVM info _CLAU
+
+        //velInterp stuff _CLAU
+
+            // Interpolation gradU - OpenFoam Interpolation (cellPoint-cell defined trough dictionary fvSchemes).
+	        vector (horizontalAxisWindTurbinesALMAdvanced::* velInterpFunptr) (point &ivelInterpPoint,label &ivelCellLabel);
+	        DynamicList<vector> (horizontalAxisWindTurbinesALMAdvanced::* velInterpFunptrList) (DynamicList<point> &ivelInterpPoint,DynamicList<label> 	&ivelCellLabel);
+							  
+	       // Velocity interpolation functions.
+	       vector velInterp(point &iVelPoint,label &iVelCell);
+	       DynamicList<vector> velInterp(DynamicList<point> &iVelPoint,DynamicList<label> &iVelCell);
+	
+	       vector velInterpDict(point &iVelPoint,label &iVelCell);
+	       DynamicList<vector> velInterpDict(DynamicList<point> &iVelPoint,DynamicList<label> &iVelCell);
+	
+	       vector velInterpGrad(point &iVelPoint,label &iVelCell);
+	       DynamicList<vector> velInterpGrad(DynamicList<point> &iVelPoint,DynamicList<label> &iVelCell);
+	
+	       // Interpolation dictionary and pointer to U velocity field defined in constructor.
+	       dictionary interpolationDict;
+	       autoPtr<interpolation<vector> > *Uinter;
+           autoPtr<interpolation<vector> > UinterPtr;
+            
+           // vector V
+           vector V;
 
             //- Change in yaw each time step.
             DynamicList<scalar> deltaNacYaw;
@@ -697,7 +815,9 @@ private:
 
         //- Information critical to turbine performance that can be written to file
         //  every time step.
-
+            scalar windAng;
+            scalar dalfa;
+            scalar angCorr;
             //- Angle of attack at each actuator point.
             DynamicList<List<List<scalar> > > bladePointAlpha;
             DynamicList<List<scalar> > towerPointAlpha;
@@ -905,6 +1025,7 @@ private:
         //- Find out which processor zone each actuator line point lies within.
         //  (Which processor is controlling each actuator line point?)
         void findBladePointControlProcNo();
+        void findEVMPointControlProcNo();
         void findNacellePointControlProcNo();
         void findTowerPointControlProcNo();
 
@@ -954,8 +1075,9 @@ private:
         vector transformVectorLocalToCart(vector vP, vector xP, vector yP, vector zP);
 
         //- Perform interpolation.
-        scalar interpolate(scalar xNew, DynamicList<scalar>& xOld, DynamicList<scalar>& yOld);
-        label  interpolate(scalar xNew, DynamicList<scalar>& xOld, DynamicList<label>& yOld);
+        //scalar interpolate(scalar xNew, DynamicList<scalar>& xOld, DynamicList<scalar>& yOld);
+        //label  interpolate(scalar xNew, DynamicList<scalar>& xOld, DynamicList<label>& yOld);
+        template<class Type> Type interpolate(scalar x,List<scalar> &xOld,List<Type> &yOld);  // _CLAU
 
         //- Change a degree angle measurement from compass to standard.
         scalar compassToStandard(scalar dir);
